@@ -21,6 +21,7 @@ interface ElementStyles {
   padding: string; paddingTop: string; paddingRight: string
   paddingBottom: string; paddingLeft: string
   fill: string; stroke: string
+  width: string; height: string
 }
 
 interface SelectedElement {
@@ -41,6 +42,7 @@ const DEFAULT_STYLES: ElementStyles = {
   lineHeight: '1.5', borderRadius: '0', opacity: '1',
   padding: '', paddingTop: '0', paddingRight: '0', paddingBottom: '0', paddingLeft: '0',
   fill: '', stroke: '',
+  width: '', height: '',
 }
 
 const CANVAS_WIDTHS: Record<ViewMode, string> = {
@@ -128,6 +130,7 @@ export default function HtmlVisualEditor() {
   const [sidePanel, setSidePanel] = useState<SidePanel>(null)
   const [canUndo, setCanUndo]     = useState(false)
   const [canRedo, setCanRedo]     = useState(false)
+  const [uploadError, setUploadError] = useState('')
 
   const iframeRef = useRef<HTMLIFrameElement>(null)
 
@@ -166,14 +169,22 @@ export default function HtmlVisualEditor() {
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const mod = e.metaKey || e.ctrlKey
-      if (!mod) return
-      if (e.key === 'z' && !e.shiftKey) { e.preventDefault(); send({ type: 'UNDO' }) }
-      if (e.key === 'z' &&  e.shiftKey) { e.preventDefault(); send({ type: 'REDO' }) }
-      if (e.key === 'y')                { e.preventDefault(); send({ type: 'REDO' }) }
+      if (mod) {
+        if (e.key === 'z' && !e.shiftKey) { e.preventDefault(); send({ type: 'UNDO' }) }
+        if (e.key === 'z' &&  e.shiftKey) { e.preventDefault(); send({ type: 'REDO' }) }
+        if (e.key === 'y')                { e.preventDefault(); send({ type: 'REDO' }) }
+      }
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selected && !editingText) {
+        const tag = (document.activeElement as HTMLElement)?.tagName?.toLowerCase()
+        if (tag !== 'input' && tag !== 'textarea' && tag !== 'select') {
+          e.preventDefault()
+          send({ type: 'DELETE_ELEMENT' })
+        }
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [send])
+  }, [send, selected, editingText])
 
   const loadHtml = useCallback((raw: string) => {
     const norm = normalizeHtml(raw.trim())
@@ -199,7 +210,17 @@ export default function HtmlVisualEditor() {
   }, [send])
 
   // Image upload handler
+  const showUploadError = useCallback((msg: string) => {
+    setUploadError(msg)
+    setTimeout(() => setUploadError(''), 6000)
+  }, [])
+
   const handleImageUpload = useCallback((file: File) => {
+    const supported = ['image/jpeg','image/png','image/gif','image/webp','image/svg+xml','image/avif']
+    if (!supported.includes(file.type)) {
+      showUploadError(`"${file.name}" can't be displayed — please convert to JPG or PNG first (open in Photos → Export as JPEG)`)
+      return
+    }
     const reader = new FileReader()
     reader.onload = ev => {
       const src = ev.target?.result as string
@@ -211,7 +232,18 @@ export default function HtmlVisualEditor() {
       }
     }
     reader.readAsDataURL(file)
-  }, [selected, send])
+  }, [selected, send, showUploadError])
+
+  const handleReplaceImage = useCallback((file: File) => {
+    const supported = ['image/jpeg','image/png','image/gif','image/webp','image/svg+xml','image/avif']
+    if (!supported.includes(file.type)) {
+      showUploadError(`"${file.name}" can't be displayed — please convert to JPG or PNG first`)
+      return
+    }
+    const reader = new FileReader()
+    reader.onload = ev => send({ type: 'SET_IMG_SRC', src: ev.target?.result, alt: file.name })
+    reader.readAsDataURL(file)
+  }, [send, showUploadError])
 
   // ── Import screen ───────────────────────────────────────────────────────────
   if (step === 'import') {
@@ -314,6 +346,15 @@ export default function HtmlVisualEditor() {
         </div>
       </header>
 
+      {/* Upload error toast */}
+      {uploadError && (
+        <div className="shrink-0 flex items-center gap-2 px-4 py-2 bg-red-50 border-b border-red-200 text-red-700 text-xs font-medium">
+          <X size={13} className="shrink-0" />
+          {uploadError}
+          <button onClick={() => setUploadError('')} className="ml-auto text-red-400 hover:text-red-600"><X size={12} /></button>
+        </div>
+      )}
+
       {/* Main area */}
       <div className="flex-1 flex overflow-hidden">
 
@@ -391,6 +432,7 @@ export default function HtmlVisualEditor() {
             onDelete={() => { send({ type: 'DELETE_ELEMENT' }) }}
             onDuplicate={() => send({ type: 'DUPLICATE_ELEMENT' })}
             onDeselect={() => { send({ type: 'DESELECT' }); setSelected(null); setSidePanel(null) }}
+            onReplaceImage={handleReplaceImage}
           />
         )}
 
@@ -414,9 +456,10 @@ interface PanelProps {
   toggle: (prop: string, on: string, off: string) => void
   send: (msg: Record<string, unknown>) => void
   onDelete: () => void; onDuplicate: () => void; onDeselect: () => void
+  onReplaceImage: (file: File) => void
 }
 
-function PropertiesPanel({ selected, styles, applyStyle, toggle, send, onDelete, onDuplicate, onDeselect }: PanelProps) {
+function PropertiesPanel({ selected, styles, applyStyle, toggle, send, onDelete, onDuplicate, onDeselect, onReplaceImage }: PanelProps) {
   return (
     <aside className="w-72 shrink-0 bg-white border-l border-slate-200 flex flex-col overflow-hidden">
       <div className="flex-1 overflow-y-auto">
@@ -538,14 +581,22 @@ function PropertiesPanel({ selected, styles, applyStyle, toggle, send, onDelete,
           {/* Image */}
           {selected.isImage && (
             <Section label="Image">
+              <div className="flex gap-2">
+                <Field label="Width (px)" className="flex-1">
+                  <NumInput value={parseFloat(styles.width) || ''} min={0} max={3000}
+                    onChange={v => applyStyle({ width: v ? v+'px' : '', maxWidth: v ? 'none' : '' })} />
+                </Field>
+                <Field label="Height (px)" className="flex-1">
+                  <NumInput value={parseFloat(styles.height) || ''} min={0} max={3000}
+                    onChange={v => applyStyle({ height: v ? v+'px' : '' })} />
+                </Field>
+              </div>
               <Field label="Replace image">
                 <label className="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-600 cursor-pointer hover:bg-slate-100 transition-colors">
                   <ImageIcon size={13} />Upload new image
-                  <input type="file" accept="image/*" className="hidden" onChange={e => {
+                  <input type="file" accept="image/jpeg,image/png,image/gif,image/webp,image/avif,image/svg+xml" className="hidden" onChange={e => {
                     const f = e.target.files?.[0]; if (!f) return
-                    const r = new FileReader()
-                    r.onload = ev => send({ type:'SET_IMG_SRC', src: ev.target?.result, alt: f.name })
-                    r.readAsDataURL(f); e.target.value=''
+                    onReplaceImage(f); e.target.value=''
                   }} />
                 </label>
               </Field>

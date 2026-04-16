@@ -80,6 +80,8 @@ export const EDITOR_SCRIPT = `(function () {
       paddingLeft:     pxNum(s.paddingLeft      || cs.paddingLeft),
       fill:            s.fill                   || cs.fill     || '',
       stroke:          s.stroke                 || cs.stroke   || '',
+      width:           s.width                  || '',
+      height:          s.height                 || '',
     };
   }
 
