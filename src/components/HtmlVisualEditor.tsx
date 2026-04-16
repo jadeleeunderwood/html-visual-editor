@@ -5,7 +5,7 @@ import {
   Download, Monitor, Smartphone, Tablet, Bold, Italic, Underline,
   AlignLeft, AlignCenter, AlignRight, AlignJustify, Trash2, Copy,
   ChevronLeft, Code2, X, FileText, Sparkles, Undo2, Redo2,
-  Layers, Image as ImageIcon, Type, Square, Pipette, Plus,
+  Layers, Image as ImageIcon, Type, Square, Pipette, Plus, Printer,
 } from 'lucide-react'
 import { cn, downloadFile, FONT_OPTIONS } from '@/lib/utils'
 import { injectEditorScript, normalizeHtml } from '@/lib/editorScript'
@@ -163,7 +163,8 @@ export default function HtmlVisualEditor() {
   const [canRedo, setCanRedo]     = useState(false)
   const [uploadError, setUploadError] = useState('')
 
-  const iframeRef = useRef<HTMLIFrameElement>(null)
+  const iframeRef   = useRef<HTMLIFrameElement>(null)
+  const printModeRef = useRef(false)
 
   const send = useCallback((msg: Record<string, unknown>) => {
     iframeRef.current?.contentWindow?.postMessage(msg, '*')
@@ -190,7 +191,26 @@ export default function HtmlVisualEditor() {
       if (d.type === 'HISTORY_UPDATE') {
         setCanUndo(!!d.canUndo); setCanRedo(!!d.canRedo)
       }
-      if (d.type === 'HTML_CONTENT') downloadFile(d.html as string, 'page.html')
+      if (d.type === 'HTML_CONTENT') {
+        const html = d.html as string
+        if (printModeRef.current) {
+          printModeRef.current = false
+          // Inject print-color CSS so backgrounds/gradients render in PDF
+          const printHtml = html.includes('</head>')
+            ? html.replace('</head>', '<style>@media print{*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}body{margin:0;}}</style>\n</head>')
+            : html
+          const win = window.open('', '_blank')
+          if (win) {
+            win.document.open()
+            win.document.write(printHtml)
+            win.document.close()
+            // Wait for fonts/images to load before triggering print dialog
+            setTimeout(() => { win.focus(); win.print() }, 800)
+          }
+        } else {
+          downloadFile(html, 'page.html')
+        }
+      }
     }
     window.addEventListener('message', onMsg)
     return () => window.removeEventListener('message', onMsg)
@@ -282,6 +302,11 @@ export default function HtmlVisualEditor() {
     reader.onload = ev => send({ type: 'SET_IMG_SRC', src: ev.target?.result, alt: file.name })
     reader.readAsDataURL(file)
   }, [send, showUploadError])
+
+  const handlePrintPDF = useCallback(() => {
+    printModeRef.current = true
+    send({ type: 'GET_HTML' })
+  }, [send])
 
   // ── Import screen ───────────────────────────────────────────────────────────
   if (step === 'import') {
@@ -378,8 +403,12 @@ export default function HtmlVisualEditor() {
             <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handleImageUpload(f); e.target.value = '' }} />
           </label>
           <button onClick={() => send({ type: 'GET_HTML' })}
-            className="flex items-center gap-1 px-2.5 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-semibold hover:bg-indigo-700 transition-colors">
-            <Download size={13} /><span className="hidden sm:inline">Export</span>
+            className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-xs font-semibold hover:bg-slate-200 transition-colors" title="Download HTML">
+            <Download size={13} /><span className="hidden sm:inline">HTML</span>
+          </button>
+          <button onClick={handlePrintPDF}
+            className="flex items-center gap-1 px-2.5 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-semibold hover:bg-indigo-700 transition-colors" title="Export as PDF">
+            <Printer size={13} /><span className="hidden sm:inline">PDF</span>
           </button>
         </div>
       </header>
