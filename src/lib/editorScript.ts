@@ -201,51 +201,59 @@ export const EDITOR_SCRIPT = `(function () {
   }, true);
 
   // ── Drag & Drop (reorder elements) ────────────────────────────────────────
-  var isDragging     = false;
-  var dragEl         = null;
-  var dragGhost      = null;
+  var isDragging      = false;
+  var dragEl          = null;
+  var dragGhost       = null;
   var dragPlaceholder = null;
   var dragOffX = 0, dragOffY = 0;
-  var mdEl = null, mdX = 0, mdY = 0; // mousedown state
 
-  document.addEventListener('mousedown', function (e) {
+  document.addEventListener('pointerdown', function (e) {
     if (e.button !== 0) return;
-    mdEl = e.target;
-    mdX  = e.clientX;
-    mdY  = e.clientY;
-  }, true);
+    var downEl = e.target;
+    var downX  = e.clientX;
+    var downY  = e.clientY;
 
-  document.addEventListener('mousemove', function (e) {
-    if (!mdEl) return;
-
-    if (!isDragging) {
-      var dist = Math.hypot(e.clientX - mdX, e.clientY - mdY);
-      if (dist > 7 && sel && (mdEl === sel || sel.contains(mdEl))) {
-        startDrag(sel, e.clientX, e.clientY);
+    function onMove(ev) {
+      if (!isDragging) {
+        var dist = Math.hypot(ev.clientX - downX, ev.clientY - downY);
+        if (dist > 7 && sel && (downEl === sel || sel.contains(downEl))) {
+          startDrag(sel, ev.clientX, ev.clientY);
+        }
+        return;
       }
-      return;
+
+      ev.preventDefault();
+      dragGhost.style.left = (ev.clientX - dragOffX) + 'px';
+      dragGhost.style.top  = (ev.clientY - dragOffY) + 'px';
+
+      dragGhost.style.visibility = 'hidden';
+      var target = document.elementFromPoint(ev.clientX, ev.clientY);
+      dragGhost.style.visibility = '';
+
+      if (!target || target === dragEl || target === dragPlaceholder ||
+          target === document.body   || target === document.documentElement ||
+          dragEl.contains(target)) return;
+
+      var rect = target.getBoundingClientRect();
+      try {
+        if (ev.clientY < rect.top + rect.height / 2) {
+          target.parentNode.insertBefore(dragPlaceholder, target);
+        } else {
+          target.parentNode.insertBefore(dragPlaceholder, target.nextSibling);
+        }
+      } catch (_) {}
     }
 
-    e.preventDefault();
-    dragGhost.style.left = (e.clientX - dragOffX) + 'px';
-    dragGhost.style.top  = (e.clientY - dragOffY) + 'px';
+    function onUp() {
+      document.removeEventListener('pointermove', onMove, true);
+      document.removeEventListener('pointerup',   onUp,   true);
+      document.removeEventListener('pointercancel', onUp, true);
+      endDrag();
+    }
 
-    dragGhost.style.visibility = 'hidden';
-    var target = document.elementFromPoint(e.clientX, e.clientY);
-    dragGhost.style.visibility = '';
-
-    if (!target || target === dragEl || target === dragPlaceholder ||
-        target === document.body   || target === document.documentElement ||
-        dragEl.contains(target)) return;
-
-    var rect = target.getBoundingClientRect();
-    try {
-      if (e.clientY < rect.top + rect.height / 2) {
-        target.parentNode.insertBefore(dragPlaceholder, target);
-      } else {
-        target.parentNode.insertBefore(dragPlaceholder, target.nextSibling);
-      }
-    } catch (_) {}
+    document.addEventListener('pointermove',   onMove, true);
+    document.addEventListener('pointerup',     onUp,   true);
+    document.addEventListener('pointercancel', onUp,   true);
   }, true);
 
   function startDrag(el, x, y) {
@@ -284,7 +292,6 @@ export const EDITOR_SCRIPT = `(function () {
   function endDrag() {
     if (!isDragging) return;
     isDragging = false;
-    mdEl       = null;
 
     if (dragGhost) { dragGhost.remove(); dragGhost = null; }
 
@@ -306,8 +313,6 @@ export const EDITOR_SCRIPT = `(function () {
     window.parent.postMessage({ type: 'DRAGGING_ENDED' }, '*');
   }
 
-  document.addEventListener('mouseup',    function (e) { if (e.button === 0) { mdEl = null; endDrag(); } }, true);
-  document.addEventListener('mouseleave', endDrag, true);
 
   // ── Messages from parent ──────────────────────────────────────────────────
   window.addEventListener('message', function (e) {
@@ -403,10 +408,7 @@ export const EDITOR_SCRIPT = `(function () {
         wrap.innerHTML = d.html;
         var newEl = wrap.firstElementChild || wrap.firstChild;
         if (!newEl) break;
-        // Insert before editor script tag, or at end of body
-        var edScript = document.querySelector('[data-html-editor]');
-        if (edScript) { document.body.insertBefore(newEl, edScript); }
-        else { document.body.appendChild(newEl); }
+        document.body.appendChild(newEl);
         selectEl(newEl);
         newEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         break;
