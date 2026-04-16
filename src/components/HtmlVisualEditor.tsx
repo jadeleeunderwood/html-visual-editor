@@ -22,6 +22,8 @@ interface ElementStyles {
   paddingBottom: string; paddingLeft: string
   fill: string; stroke: string
   width: string; height: string
+  marginTop: string; marginRight: string; marginBottom: string; marginLeft: string
+  boxShadow: string
 }
 
 interface SelectedElement {
@@ -43,6 +45,8 @@ const DEFAULT_STYLES: ElementStyles = {
   padding: '', paddingTop: '0', paddingRight: '0', paddingBottom: '0', paddingLeft: '0',
   fill: '', stroke: '',
   width: '', height: '',
+  marginTop: '0', marginRight: '0', marginBottom: '0', marginLeft: '0',
+  boxShadow: 'none',
 }
 
 const CANVAS_WIDTHS: Record<ViewMode, string> = {
@@ -64,6 +68,16 @@ const COLOR_PALETTE = [
   '#831843','#db2777','#ec4899','#f472b6','#f9a8d4','#fbcfe8','#fce7f3','#fdf2f8',
 ]
 
+// ── Shadow presets ─────────────────────────────────────────────────────────────
+
+const SHADOW_PRESETS = [
+  { label: 'None',  value: 'none' },
+  { label: 'Soft',  value: '0 2px 8px rgba(0,0,0,0.08)' },
+  { label: 'Card',  value: '0 4px 16px rgba(0,0,0,0.12)' },
+  { label: 'Float', value: '0 12px 40px rgba(0,0,0,0.18)' },
+  { label: 'Lift',  value: '0 24px 64px rgba(0,0,0,0.22)' },
+]
+
 // ── Elements panel content ────────────────────────────────────────────────────
 
 const ELEMENT_GROUPS = [
@@ -71,45 +85,62 @@ const ELEMENT_GROUPS = [
     category: 'Text',
     icon: <Type size={13} />,
     items: [
-      { label: 'Heading',    preview: 'Aa', html: '<h2 style="font-size:40px;font-weight:800;letter-spacing:-1.5px;color:#0a0a0a;margin:0;line-height:1.1;padding:8px 0;">Your Heading Here</h2>' },
-      { label: 'Subheading', preview: 'Aa', html: '<h3 style="font-size:24px;font-weight:600;color:#333;margin:0;padding:6px 0;">Your Subheading</h3>' },
-      { label: 'Paragraph',  preview: '¶',  html: '<p style="font-size:16px;line-height:1.75;color:#555;margin:0;padding:4px 0;">Add your paragraph text here. Double-click to edit this text.</p>' },
-      { label: 'Button',     preview: '[ ]',html: '<div style="padding:8px 0;"><a href="#" style="display:inline-block;padding:12px 28px;background:#111;color:#fff;border-radius:8px;font-size:15px;font-weight:600;text-decoration:none;">Button Text</a></div>' },
-      { label: 'Badge',      preview: '🏷', html: '<div style="padding:4px 0;"><span style="display:inline-block;padding:5px 14px;background:#eef2ff;color:#6366f1;border-radius:100px;font-size:13px;font-weight:600;">Badge Text</span></div>' },
-      { label: 'Quote',      preview: '"',  html: '<blockquote style="border-left:4px solid #6366f1;padding:16px 20px;margin:0;background:#f9fafb;border-radius:0 8px 8px 0;"><p style="font-size:16px;color:#374151;font-style:italic;margin:0;line-height:1.7;">"Your quote goes here."</p></blockquote>' },
+      { label: 'Heading 1',   preview: 'H1', html: '<h1 style="font-size:52px;font-weight:900;letter-spacing:-2px;color:#0a0a0a;margin:0;line-height:1.05;padding:8px 0;">Your Big Headline</h1>' },
+      { label: 'Heading 2',   preview: 'H2', html: '<h2 style="font-size:40px;font-weight:800;letter-spacing:-1.5px;color:#0a0a0a;margin:0;line-height:1.1;padding:8px 0;">Your Heading Here</h2>' },
+      { label: 'Heading 3',   preview: 'H3', html: '<h3 style="font-size:24px;font-weight:600;color:#333;margin:0;padding:6px 0;">Your Subheading</h3>' },
+      { label: 'Paragraph',   preview: '¶',  html: '<p style="font-size:16px;line-height:1.75;color:#555;margin:0;padding:4px 0;">Add your paragraph text here. Double-click to edit.</p>' },
+      { label: 'Button',      preview: '▶',  html: '<div style="padding:8px 0;"><a href="#" style="display:inline-block;padding:12px 28px;background:#111;color:#fff;border-radius:8px;font-size:15px;font-weight:600;text-decoration:none;">Button Text</a></div>' },
+      { label: 'Outline Btn', preview: '□',  html: '<div style="padding:8px 0;"><a href="#" style="display:inline-block;padding:12px 28px;background:transparent;color:#111;border:2px solid #111;border-radius:8px;font-size:15px;font-weight:600;text-decoration:none;">Button Text</a></div>' },
+      { label: 'Badge',       preview: '🏷', html: '<div style="padding:4px 0;"><span style="display:inline-block;padding:5px 14px;background:#eef2ff;color:#6366f1;border-radius:100px;font-size:13px;font-weight:600;">Badge Text</span></div>' },
+      { label: 'Quote',       preview: '"',  html: '<blockquote style="border-left:4px solid #6366f1;padding:16px 20px;margin:0;background:#f9fafb;border-radius:0 8px 8px 0;"><p style="font-size:16px;color:#374151;font-style:italic;margin:0;line-height:1.7;">"Your quote goes here."</p></blockquote>' },
+      { label: 'List',        preview: '≡',  html: '<ul style="padding:8px 0 8px 20px;margin:0;"><li style="font-size:15px;color:#374151;line-height:2;">First item</li><li style="font-size:15px;color:#374151;line-height:2;">Second item</li><li style="font-size:15px;color:#374151;line-height:2;">Third item</li></ul>' },
+    ],
+  },
+  {
+    category: 'Cards',
+    icon: <Square size={13} />,
+    items: [
+      { label: 'Simple Card',  preview: '▤', html: '<div style="background:#fff;border:1px solid #f0f0f0;border-radius:16px;padding:32px;box-shadow:0 4px 16px rgba(0,0,0,0.06);"><h3 style="font-size:18px;font-weight:700;color:#0a0a0a;margin:0 0 8px;">Card Title</h3><p style="font-size:14px;color:#666;line-height:1.65;margin:0;">Card description text goes here.</p></div>' },
+      { label: 'Feature Card', preview: '★', html: '<div style="background:#fff;border:1px solid #e5e7eb;border-radius:20px;padding:32px;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,0.04);"><div style="width:52px;height:52px;background:#eef2ff;border-radius:14px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:24px;">✨</div><h3 style="font-size:17px;font-weight:700;color:#0a0a0a;margin:0 0 8px;">Feature Name</h3><p style="font-size:14px;color:#6b7280;line-height:1.6;margin:0;">A brief description of this feature.</p></div>' },
+      { label: 'Price Card',   preview: '$', html: '<div style="background:#fff;border:2px solid #6366f1;border-radius:24px;padding:40px 32px;text-align:center;"><p style="font-size:12px;font-weight:700;color:#6366f1;text-transform:uppercase;letter-spacing:2px;margin:0 0 12px;">Pro Plan</p><p style="font-size:52px;font-weight:900;color:#0a0a0a;margin:0 0 4px;line-height:1;">$49</p><p style="font-size:14px;color:#9ca3af;margin:0 0 28px;">per month</p><a href="#" style="display:block;padding:14px;background:#6366f1;color:#fff;border-radius:12px;font-size:15px;font-weight:700;text-decoration:none;">Get Started</a></div>' },
+      { label: 'Testimonial',  preview: '💬', html: '<div style="background:#f9fafb;border-radius:20px;padding:32px;"><p style="font-size:16px;color:#374151;line-height:1.75;margin:0 0 20px;font-style:italic;">"This product completely changed how we work. Outstanding!"</p><div style="display:flex;align-items:center;gap:12px;"><div style="width:44px;height:44px;background:#6366f1;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;color:#fff;font-weight:700;">J</div><div><p style="font-size:14px;font-weight:700;color:#0a0a0a;margin:0;">Jane Smith</p><p style="font-size:13px;color:#9ca3af;margin:0;">CEO, Company</p></div></div></div>' },
+      { label: 'Stat Block',   preview: '📊', html: '<div style="text-align:center;padding:24px;"><p style="font-size:48px;font-weight:900;color:#6366f1;margin:0;line-height:1;">94%</p><p style="font-size:14px;color:#6b7280;margin:8px 0 0;font-weight:500;">Customer satisfaction</p></div>' },
     ],
   },
   {
     category: 'Shapes',
     icon: <Square size={13} />,
     items: [
-      { label: 'Rectangle',    preview: '▭', html: '<div style="width:200px;height:120px;background:#6366f1;border-radius:12px;"></div>' },
-      { label: 'Circle',       preview: '●', html: '<div style="width:120px;height:120px;background:#6366f1;border-radius:50%;"></div>' },
-      { label: 'Rounded Box',  preview: '▢', html: '<div style="width:200px;height:120px;background:transparent;border:3px solid #6366f1;border-radius:16px;"></div>' },
-      { label: 'Gradient',     preview: '◈', html: '<div style="width:100%;height:160px;background:linear-gradient(135deg,#6366f1 0%,#8b5cf6 50%,#d946ef 100%);border-radius:16px;"></div>' },
-      { label: 'Line',         preview: '─', html: '<div style="padding:8px 0;"><hr style="border:none;border-top:3px solid #111;margin:0;" /></div>' },
-      { label: 'Dashed Line',  preview: '╌', html: '<div style="padding:8px 0;"><hr style="border:none;border-top:2px dashed #9ca3af;margin:0;" /></div>' },
+      { label: 'Rectangle',   preview: '▭', html: '<div style="width:200px;height:120px;background:#6366f1;border-radius:12px;"></div>' },
+      { label: 'Circle',      preview: '●', html: '<div style="width:120px;height:120px;background:#6366f1;border-radius:50%;"></div>' },
+      { label: 'Outline Box', preview: '▢', html: '<div style="width:200px;height:120px;background:transparent;border:3px solid #6366f1;border-radius:16px;"></div>' },
+      { label: 'Gradient',    preview: '◈', html: '<div style="width:100%;height:160px;background:linear-gradient(135deg,#6366f1 0%,#8b5cf6 50%,#d946ef 100%);border-radius:16px;"></div>' },
+      { label: 'Dark Banner', preview: '▬', html: '<div style="width:100%;height:120px;background:#0a0a0a;border-radius:16px;"></div>' },
+      { label: 'Line',        preview: '─', html: '<div style="padding:8px 0;"><hr style="border:none;border-top:3px solid #111;margin:0;" /></div>' },
+      { label: 'Divider',     preview: '╌', html: '<div style="padding:8px 0;"><hr style="border:none;border-top:1px solid #e5e7eb;margin:0;" /></div>' },
     ],
   },
   {
     category: 'Layout',
     icon: <Layers size={13} />,
     items: [
-      { label: 'Divider',     preview: '—',  html: '<div style="padding:20px 0;"><hr style="border:none;border-top:1px solid #e5e7eb;margin:0;" /></div>' },
-      { label: 'Spacer',      preview: '↕',  html: '<div style="height:80px;"></div>' },
-      { label: 'Card',        preview: '▤',  html: '<div style="background:#fff;border:1px solid #f0f0f0;border-radius:16px;padding:32px;box-shadow:0 4px 16px rgba(0,0,0,0.06);"><h3 style="font-size:18px;font-weight:700;color:#0a0a0a;margin:0 0 8px;">Card Title</h3><p style="font-size:14px;color:#666;line-height:1.65;margin:0;">Card description text.</p></div>' },
-      { label: 'Hero Block',  preview: '⬚',  html: '<section style="padding:80px 48px;background:linear-gradient(155deg,#f9fafb,#eef2ff);text-align:center;"><h2 style="font-size:48px;font-weight:900;color:#0a0a0a;margin:0 0 16px;letter-spacing:-2px;line-height:1.05;">Big Headline</h2><p style="font-size:18px;color:#555;margin:0 0 32px;">Supporting description goes here.</p><a href="#" style="display:inline-block;padding:14px 32px;background:#111;color:#fff;border-radius:10px;font-size:16px;font-weight:600;text-decoration:none;">Call to Action</a></section>' },
-      { label: '2 Columns',   preview: '⊞',  html: '<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;padding:16px 0;"><div style="background:#f9fafb;border-radius:12px;padding:28px;"><p style="color:#374151;font-weight:600;margin:0 0 8px;">Left Column</p><p style="color:#9ca3af;font-size:14px;margin:0;">Content goes here.</p></div><div style="background:#f9fafb;border-radius:12px;padding:28px;"><p style="color:#374151;font-weight:600;margin:0 0 8px;">Right Column</p><p style="color:#9ca3af;font-size:14px;margin:0;">Content goes here.</p></div></div>' },
-      { label: '3 Columns',   preview: '⊟',  html: '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;padding:16px 0;"><div style="background:#f9fafb;border-radius:12px;padding:24px;text-align:center;"><p style="color:#374151;font-weight:600;margin:0 0 6px;font-size:15px;">Feature 1</p><p style="color:#9ca3af;font-size:13px;margin:0;">Description.</p></div><div style="background:#f9fafb;border-radius:12px;padding:24px;text-align:center;"><p style="color:#374151;font-weight:600;margin:0 0 6px;font-size:15px;">Feature 2</p><p style="color:#9ca3af;font-size:13px;margin:0;">Description.</p></div><div style="background:#f9fafb;border-radius:12px;padding:24px;text-align:center;"><p style="color:#374151;font-weight:600;margin:0 0 6px;font-size:15px;">Feature 3</p><p style="color:#9ca3af;font-size:13px;margin:0;">Description.</p></div></div>' },
+      { label: 'Spacer S',    preview: '↕', html: '<div style="height:40px;"></div>' },
+      { label: 'Spacer M',    preview: '↕', html: '<div style="height:80px;"></div>' },
+      { label: 'Spacer L',    preview: '↕', html: '<div style="height:160px;"></div>' },
+      { label: 'Hero Block',  preview: '⬚', html: '<section style="padding:80px 48px;background:linear-gradient(155deg,#f9fafb,#eef2ff);text-align:center;"><h2 style="font-size:48px;font-weight:900;color:#0a0a0a;margin:0 0 16px;letter-spacing:-2px;line-height:1.05;">Big Headline</h2><p style="font-size:18px;color:#555;margin:0 0 32px;">Supporting description goes here.</p><a href="#" style="display:inline-block;padding:14px 32px;background:#111;color:#fff;border-radius:10px;font-size:16px;font-weight:600;text-decoration:none;">Call to Action</a></section>' },
+      { label: '2 Columns',   preview: '⊞', html: '<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;"><div style="background:#f9fafb;border-radius:12px;padding:28px;"><p style="color:#374151;font-weight:600;margin:0 0 8px;">Left Column</p><p style="color:#9ca3af;font-size:14px;margin:0;">Content goes here.</p></div><div style="background:#f9fafb;border-radius:12px;padding:28px;"><p style="color:#374151;font-weight:600;margin:0 0 8px;">Right Column</p><p style="color:#9ca3af;font-size:14px;margin:0;">Content goes here.</p></div></div>' },
+      { label: '3 Columns',   preview: '⊟', html: '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;"><div style="background:#f9fafb;border-radius:12px;padding:24px;text-align:center;"><p style="color:#374151;font-weight:600;margin:0 0 6px;font-size:15px;">Col 1</p><p style="color:#9ca3af;font-size:13px;margin:0;">Content.</p></div><div style="background:#f9fafb;border-radius:12px;padding:24px;text-align:center;"><p style="color:#374151;font-weight:600;margin:0 0 6px;font-size:15px;">Col 2</p><p style="color:#9ca3af;font-size:13px;margin:0;">Content.</p></div><div style="background:#f9fafb;border-radius:12px;padding:24px;text-align:center;"><p style="color:#374151;font-weight:600;margin:0 0 6px;font-size:15px;">Col 3</p><p style="color:#9ca3af;font-size:13px;margin:0;">Content.</p></div></div>' },
+      { label: 'CTA Strip',   preview: '→', html: '<section style="background:#0a0a0a;padding:48px;display:flex;align-items:center;justify-content:space-between;gap:32px;flex-wrap:wrap;"><div><h3 style="font-size:24px;font-weight:800;color:#fff;margin:0 0 6px;">Ready to get started?</h3><p style="font-size:15px;color:#9ca3af;margin:0;">Join thousands of happy customers.</p></div><a href="#" style="display:inline-block;padding:14px 28px;background:#6366f1;color:#fff;border-radius:10px;font-size:15px;font-weight:700;text-decoration:none;white-space:nowrap;">Get Started →</a></section>' },
     ],
   },
   {
     category: 'Media',
     icon: <ImageIcon size={13} />,
     items: [
-      { label: 'Image',         preview: '🖼', html: '<img src="https://images.unsplash.com/photo-1554147090-e1221ad04913?w=800&q=80" alt="Image" style="width:100%;height:280px;object-fit:cover;border-radius:12px;display:block;" />' },
-      { label: 'Image + Caption', preview: '🖼', html: '<figure style="margin:0;"><img src="https://images.unsplash.com/photo-1554147090-e1221ad04913?w=800&q=80" alt="Image" style="width:100%;height:240px;object-fit:cover;border-radius:12px;display:block;" /><figcaption style="font-size:13px;color:#9ca3af;text-align:center;padding:10px 0 0;">Image caption goes here</figcaption></figure>' },
-      { label: 'Placeholder',   preview: '⬚', html: '<div style="width:100%;height:260px;background:linear-gradient(135deg,#e0e7ff,#c7d2fe);border-radius:12px;display:flex;align-items:center;justify-content:center;"><span style="font-size:15px;color:#6366f1;font-weight:500;">Image placeholder</span></div>' },
+      { label: 'Image',        preview: '🖼', html: '<img src="https://images.unsplash.com/photo-1554147090-e1221ad04913?w=800&q=80" alt="Image" style="width:100%;height:280px;object-fit:cover;border-radius:12px;display:block;" />' },
+      { label: 'Round Image',  preview: '👤', html: '<img src="https://images.unsplash.com/photo-1499996860823-5214fcc65f8f?w=400&q=80" alt="Avatar" style="width:100px;height:100px;object-fit:cover;border-radius:50%;display:block;" />' },
+      { label: 'Img + Caption',preview: '🖼', html: '<figure style="margin:0;"><img src="https://images.unsplash.com/photo-1554147090-e1221ad04913?w=800&q=80" alt="Image" style="width:100%;height:240px;object-fit:cover;border-radius:12px;display:block;" /><figcaption style="font-size:13px;color:#9ca3af;text-align:center;padding:10px 0 0;">Image caption goes here</figcaption></figure>' },
+      { label: 'Placeholder',  preview: '⬚', html: '<div style="width:100%;height:260px;background:linear-gradient(135deg,#e0e7ff,#c7d2fe);border-radius:12px;display:flex;align-items:center;justify-content:center;"><span style="font-size:15px;color:#6366f1;font-weight:500;">Click to replace image</span></div>' },
     ],
   },
 ]
@@ -197,7 +228,14 @@ export default function HtmlVisualEditor() {
 
   const applyStyle = useCallback((props: Partial<Record<string, string>>) => {
     send({ type: 'APPLY_STYLE', styles: props })
-    setStyles(prev => ({ ...prev, ...props }))
+    setStyles(prev => {
+      const norm: Record<string, string> = {}
+      for (const [k, v] of Object.entries(props)) {
+        // Strip 'px' suffix so number inputs always get a plain number string
+        norm[k] = typeof v === 'string' && /^-?[\d.]+px$/.test(v) ? String(parseFloat(v)) : (v ?? '')
+      }
+      return { ...prev, ...norm } as ElementStyles
+    })
   }, [send])
 
   const toggle = useCallback((prop: string, on: string, off: string) => {
@@ -460,94 +498,167 @@ interface PanelProps {
 }
 
 function PropertiesPanel({ selected, styles, applyStyle, toggle, send, onDelete, onDuplicate, onDeselect, onReplaceImage }: PanelProps) {
+  const isTextLike = selected.isText || selected.isContainer || selected.tagName === 'div'
+  const inputCls = 'w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700'
+
   return (
     <aside className="w-72 shrink-0 bg-white border-l border-slate-200 flex flex-col overflow-hidden">
       <div className="flex-1 overflow-y-auto">
+
         {/* Header */}
-        <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
-          <span className="text-xs font-mono bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded font-semibold">&lt;{selected.tagName}&gt;</span>
-          <button onClick={onDeselect} className="text-slate-400 hover:text-slate-600"><X size={14} /></button>
+        <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-2">
+          <span className="text-xs font-mono bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded font-semibold flex-1 truncate">&lt;{selected.tagName}&gt;</span>
+          <span className="text-[10px] text-slate-400 font-medium">Del/⌫ to delete</span>
+          <button onClick={onDeselect} className="text-slate-400 hover:text-slate-600 shrink-0"><X size={13} /></button>
         </div>
-        {/* Actions */}
-        <div className="px-4 py-2.5 border-b border-slate-100 flex gap-2">
-          <button onClick={onDuplicate} className="flex items-center gap-1.5 text-xs text-slate-600 font-medium bg-slate-100 hover:bg-slate-200 px-2.5 py-1.5 rounded-lg transition-colors">
+
+        {/* Quick actions */}
+        <div className="px-3 py-2 border-b border-slate-100 flex gap-2">
+          <button onClick={onDuplicate}
+            className="flex items-center justify-center gap-1.5 text-xs text-slate-600 font-medium bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition-colors flex-1">
             <Copy size={12} />Duplicate
           </button>
-          <button onClick={onDelete} className="flex items-center gap-1.5 text-xs text-red-500 font-medium bg-red-50 hover:bg-red-100 px-2.5 py-1.5 rounded-lg transition-colors">
+          <button onClick={onDelete}
+            className="flex items-center justify-center gap-1.5 text-xs text-red-500 font-medium bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition-colors flex-1">
             <Trash2 size={12} />Delete
           </button>
         </div>
 
         <div className="px-4 py-4 space-y-5">
-          {/* Typography */}
-          <Section label="Typography">
-            <Field label="Font family">
-              <select className="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700"
-                value={styles.fontFamily} onChange={e => applyStyle({ fontFamily: e.target.value })}>
-                <option value="">— inherited —</option>
-                {FONT_OPTIONS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
-              </select>
-            </Field>
+
+          {/* ── Layout (always shown) ── */}
+          <Section label="Layout">
             <div className="flex gap-2">
-              <Field label="Size (px)" className="flex-1">
-                <input type="number" min={1} max={500}
-                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700"
-                  value={parseFloat(String(styles.fontSize)) || ''}
-                  onChange={e => applyStyle({ fontSize: e.target.value + 'px' })} />
+              <Field label="W (px)" className="flex-1">
+                <NumInput value={parseFloat(styles.width) || ''} min={0} max={3000}
+                  onChange={v => applyStyle({ width: v ? v+'px' : '', maxWidth: v ? 'none' : '' })} />
               </Field>
-              <Field label="Weight" className="flex-1">
-                <select className="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700"
-                  value={styles.fontWeight} onChange={e => applyStyle({ fontWeight: e.target.value })}>
-                  {[['300','Light'],['400','Regular'],['500','Medium'],['600','Semibold'],['700','Bold'],['800','Extrabold'],['900','Black']].map(([v,l]) =>
-                    <option key={v} value={v}>{l}</option>)}
-                </select>
+              <Field label="H (px)" className="flex-1">
+                <NumInput value={parseFloat(styles.height) || ''} min={0} max={3000}
+                  onChange={v => applyStyle({ height: v ? v+'px' : '' })} />
               </Field>
             </div>
-            <Field label="Style & alignment">
+            <Field label="Padding (px)">
+              <div className="grid grid-cols-3 gap-1 items-center">
+                <div />
+                <NumInput value={styles.paddingTop}    onChange={v => applyStyle({ paddingTop:    v+'px' })} />
+                <div />
+                <NumInput value={styles.paddingLeft}   onChange={v => applyStyle({ paddingLeft:   v+'px' })} />
+                <div className="text-center text-[9px] text-slate-400 font-medium">pad</div>
+                <NumInput value={styles.paddingRight}  onChange={v => applyStyle({ paddingRight:  v+'px' })} />
+                <div />
+                <NumInput value={styles.paddingBottom} onChange={v => applyStyle({ paddingBottom: v+'px' })} />
+                <div />
+              </div>
+            </Field>
+            <Field label="Margin (px)">
+              <div className="grid grid-cols-3 gap-1 items-center">
+                <div />
+                <NumInput value={styles.marginTop}    min={-500} onChange={v => applyStyle({ marginTop:    v+'px' })} />
+                <div />
+                <NumInput value={styles.marginLeft}   min={-500} onChange={v => applyStyle({ marginLeft:   v+'px' })} />
+                <div className="text-center text-[9px] text-slate-400 font-medium">mar</div>
+                <NumInput value={styles.marginRight}  min={-500} onChange={v => applyStyle({ marginRight:  v+'px' })} />
+                <div />
+                <NumInput value={styles.marginBottom} min={-500} onChange={v => applyStyle({ marginBottom: v+'px' })} />
+                <div />
+              </div>
+            </Field>
+          </Section>
+
+          {/* ── Typography (text-like elements) ── */}
+          {isTextLike && (
+            <Section label="Typography">
+              <Field label="Font">
+                <select className={inputCls} value={styles.fontFamily} onChange={e => applyStyle({ fontFamily: e.target.value })}>
+                  <option value="">— inherited —</option>
+                  {FONT_OPTIONS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
+                </select>
+              </Field>
+              <div className="flex gap-2">
+                <Field label="Size (px)" className="flex-1">
+                  <input type="number" min={1} max={500} className={inputCls}
+                    value={parseFloat(String(styles.fontSize)) || ''}
+                    onChange={e => applyStyle({ fontSize: e.target.value + 'px' })} />
+                </Field>
+                <Field label="Weight" className="flex-1">
+                  <select className={inputCls} value={styles.fontWeight} onChange={e => applyStyle({ fontWeight: e.target.value })}>
+                    {[['300','Light'],['400','Regular'],['500','Medium'],['600','Semi'],['700','Bold'],['800','XBold'],['900','Black']].map(([v,l]) =>
+                      <option key={v} value={v}>{l}</option>)}
+                  </select>
+                </Field>
+              </div>
+              <Field label="Style & align">
+                <div className="flex gap-1 flex-wrap">
+                  {[
+                    { icon:<Bold size={13}/>,      p:'fontWeight',    on:'700',      off:'400',    active:styles.fontWeight==='700',                     title:'Bold' },
+                    { icon:<Italic size={13}/>,    p:'fontStyle',     on:'italic',   off:'normal', active:styles.fontStyle==='italic',                   title:'Italic' },
+                    { icon:<Underline size={13}/>, p:'textDecoration',on:'underline',off:'none',   active:!!styles.textDecoration?.includes('underline'), title:'Underline' },
+                  ].map(({ icon, p, on, off, active, title }) => (
+                    <button key={p} title={title} onClick={() => toggle(p, on, off)}
+                      className={cn('w-8 h-8 flex items-center justify-center rounded-lg border text-xs transition-colors',
+                        active ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100')}>
+                      {icon}
+                    </button>
+                  ))}
+                  <div className="w-px h-8 bg-slate-200" />
+                  {[
+                    { icon:<AlignLeft size={13}/>,    v:'left' },
+                    { icon:<AlignCenter size={13}/>,  v:'center' },
+                    { icon:<AlignRight size={13}/>,   v:'right' },
+                    { icon:<AlignJustify size={13}/>, v:'justify' },
+                  ].map(({ icon, v }) => (
+                    <button key={v} onClick={() => applyStyle({ textAlign: v })}
+                      className={cn('w-8 h-8 flex items-center justify-center rounded-lg border text-xs transition-colors',
+                        styles.textAlign===v ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100')}>
+                      {icon}
+                    </button>
+                  ))}
+                </div>
+              </Field>
+              <div className="flex gap-2">
+                <Field label="Letter spacing" className="flex-1">
+                  <NumInput value={styles.letterSpacing} min={-5} max={20} step={0.5} onChange={v => applyStyle({ letterSpacing: v+'px' })} />
+                </Field>
+                <Field label="Line height" className="flex-1">
+                  <NumInput value={styles.lineHeight} min={0.8} max={4} step={0.1} onChange={v => applyStyle({ lineHeight: v })} />
+                </Field>
+              </div>
+            </Section>
+          )}
+
+          {/* ── Appearance ── */}
+          <Section label="Appearance">
+            <ColorField label="Text colour"  value={styles.color}           onChange={v => applyStyle({ color: v })} />
+            <ColorField label="Background"   value={styles.backgroundColor} onChange={v => applyStyle({ backgroundColor: v })} allowTransparent />
+            <div className="flex gap-2">
+              <Field label="Radius (px)" className="flex-1">
+                <NumInput value={styles.borderRadius} min={0} max={300} onChange={v => applyStyle({ borderRadius: v+'px' })} />
+              </Field>
+              <Field label="Opacity" className="flex-1">
+                <div className="flex items-center gap-1.5">
+                  <input type="range" min={0} max={1} step={0.01} value={styles.opacity}
+                    onChange={e => applyStyle({ opacity: e.target.value })} className="flex-1 accent-indigo-600" />
+                  <span className="text-xs text-slate-500 w-7 text-right shrink-0">{Math.round(parseFloat(styles.opacity||'1')*100)}%</span>
+                </div>
+              </Field>
+            </div>
+            <Field label="Shadow">
               <div className="flex gap-1 flex-wrap">
-                {[
-                  { icon: <Bold size={13}/>,      p:'fontWeight',    on:'700',      off:'400',    active: styles.fontWeight==='700',               title:'Bold' },
-                  { icon: <Italic size={13}/>,    p:'fontStyle',     on:'italic',   off:'normal', active: styles.fontStyle==='italic',             title:'Italic' },
-                  { icon: <Underline size={13}/>, p:'textDecoration',on:'underline',off:'none',   active: styles.textDecoration?.includes('underline'), title:'Underline' },
-                ].map(({ icon, p, on, off, active, title }) => (
-                  <button key={p} title={title} onClick={() => toggle(p, on, off)}
-                    className={cn('w-8 h-8 flex items-center justify-center rounded-lg border text-xs transition-colors',
-                      active ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100')}>
-                    {icon}
-                  </button>
-                ))}
-                <div className="w-px h-8 bg-slate-200" />
-                {[
-                  { icon:<AlignLeft size={13}/>,    v:'left',    title:'Left' },
-                  { icon:<AlignCenter size={13}/>,  v:'center',  title:'Center' },
-                  { icon:<AlignRight size={13}/>,   v:'right',   title:'Right' },
-                  { icon:<AlignJustify size={13}/>, v:'justify', title:'Justify' },
-                ].map(({ icon, v, title }) => (
-                  <button key={v} title={title} onClick={() => applyStyle({ textAlign: v })}
-                    className={cn('w-8 h-8 flex items-center justify-center rounded-lg border text-xs transition-colors',
-                      styles.textAlign===v ? 'bg-indigo-600 border-indigo-600 text-white' : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100')}>
-                    {icon}
+                {SHADOW_PRESETS.map(s => (
+                  <button key={s.label} onClick={() => applyStyle({ boxShadow: s.value })}
+                    className={cn('px-2.5 py-1 rounded-lg border text-[11px] font-medium transition-colors',
+                      styles.boxShadow === s.value
+                        ? 'bg-indigo-600 border-indigo-600 text-white'
+                        : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100')}>
+                    {s.label}
                   </button>
                 ))}
               </div>
             </Field>
-            <div className="flex gap-2">
-              <Field label="Letter spacing" className="flex-1">
-                <NumInput value={styles.letterSpacing} min={-5} max={20} step={0.5} onChange={v => applyStyle({ letterSpacing: v + 'px' })} />
-              </Field>
-              <Field label="Line height" className="flex-1">
-                <NumInput value={styles.lineHeight} min={0.8} max={4} step={0.1} onChange={v => applyStyle({ lineHeight: v })} />
-              </Field>
-            </div>
           </Section>
 
-          {/* Colours */}
-          <Section label="Colours">
-            <ColorField label="Text colour"   value={styles.color}           onChange={v => applyStyle({ color: v })} />
-            <ColorField label="Background"    value={styles.backgroundColor} onChange={v => applyStyle({ backgroundColor: v })} allowTransparent />
-          </Section>
-
-          {/* SVG fill/stroke */}
+          {/* ── SVG ── */}
           {selected.isSvg && (
             <Section label="SVG">
               <ColorField label="Fill"   value={styles.fill}   onChange={v => applyStyle({ fill: v })} allowTransparent />
@@ -555,58 +666,35 @@ function PropertiesPanel({ selected, styles, applyStyle, toggle, send, onDelete,
             </Section>
           )}
 
-          {/* Spacing */}
-          <Section label="Spacing">
-            <Field label="Padding (px)">
-              <div className="grid grid-cols-3 gap-1 items-center">
-                <div /><NumInput value={styles.paddingTop}    onChange={v => applyStyle({ paddingTop:    v+'px' })} /><div />
-                <NumInput value={styles.paddingLeft}   onChange={v => applyStyle({ paddingLeft:   v+'px' })} />
-                <div className="text-center text-[9px] text-slate-400">pad</div>
-                <NumInput value={styles.paddingRight}  onChange={v => applyStyle({ paddingRight:  v+'px' })} />
-                <div /><NumInput value={styles.paddingBottom} onChange={v => applyStyle({ paddingBottom: v+'px' })} /><div />
-              </div>
-            </Field>
-            <Field label="Border radius (px)">
-              <NumInput value={styles.borderRadius} min={0} max={300} onChange={v => applyStyle({ borderRadius: v+'px' })} />
-            </Field>
-            <Field label="Opacity">
-              <div className="flex items-center gap-2">
-                <input type="range" min={0} max={1} step={0.01} value={styles.opacity}
-                  onChange={e => applyStyle({ opacity: e.target.value })} className="flex-1 accent-indigo-600" />
-                <span className="text-xs text-slate-500 w-8 text-right">{Math.round(parseFloat(styles.opacity||'1')*100)}%</span>
-              </div>
-            </Field>
-          </Section>
+          {/* ── Link ── */}
+          {selected.tagName === 'a' && (
+            <Section label="Link">
+              <Field label="URL (href)">
+                <input type="text" placeholder="https://..." defaultValue={selected.href || ''}
+                  className={inputCls}
+                  onBlur={e => send({ type: 'SET_HREF', href: e.target.value })} />
+              </Field>
+            </Section>
+          )}
 
-          {/* Image */}
+          {/* ── Image ── */}
           {selected.isImage && (
             <Section label="Image">
-              <div className="flex gap-2">
-                <Field label="Width (px)" className="flex-1">
-                  <NumInput value={parseFloat(styles.width) || ''} min={0} max={3000}
-                    onChange={v => applyStyle({ width: v ? v+'px' : '', maxWidth: v ? 'none' : '' })} />
-                </Field>
-                <Field label="Height (px)" className="flex-1">
-                  <NumInput value={parseFloat(styles.height) || ''} min={0} max={3000}
-                    onChange={v => applyStyle({ height: v ? v+'px' : '' })} />
-                </Field>
-              </div>
               <Field label="Replace image">
                 <label className="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-600 cursor-pointer hover:bg-slate-100 transition-colors">
                   <ImageIcon size={13} />Upload new image
-                  <input type="file" accept="image/jpeg,image/png,image/gif,image/webp,image/avif,image/svg+xml" className="hidden" onChange={e => {
-                    const f = e.target.files?.[0]; if (!f) return
-                    onReplaceImage(f); e.target.value=''
-                  }} />
+                  <input type="file" accept="image/jpeg,image/png,image/gif,image/webp,image/avif,image/svg+xml" className="hidden"
+                    onChange={e => { const f = e.target.files?.[0]; if (!f) return; onReplaceImage(f); e.target.value='' }} />
                 </label>
               </Field>
-              <Field label="Or image URL">
+              <Field label="Or paste URL">
                 <input type="text" placeholder="https://..." defaultValue={selected.src||''}
-                  className="w-full text-xs bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700"
+                  className={inputCls}
                   onBlur={e => e.target.value && send({ type:'SET_IMG_SRC', src: e.target.value })} />
               </Field>
             </Section>
           )}
+
         </div>
       </div>
     </aside>
