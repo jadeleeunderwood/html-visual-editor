@@ -82,6 +82,11 @@ export const EDITOR_SCRIPT = `(function () {
       stroke:          s.stroke                 || cs.stroke   || '',
       width:           s.width                  || '',
       height:          s.height                 || '',
+      marginTop:       pxNum(s.marginTop        || cs.marginTop),
+      marginRight:     pxNum(s.marginRight      || cs.marginRight),
+      marginBottom:    pxNum(s.marginBottom     || cs.marginBottom),
+      marginLeft:      pxNum(s.marginLeft       || cs.marginLeft),
+      boxShadow:       s.boxShadow              || cs.boxShadow || 'none',
     };
   }
 
@@ -421,6 +426,13 @@ export const EDITOR_SCRIPT = `(function () {
           saveHistory(true);
           sel.src = d.src;
           if (d.alt) sel.alt = d.alt;
+        }
+        break;
+
+      case 'SET_HREF':
+        if (sel && sel.tagName.toLowerCase() === 'a') {
+          saveHistory(true);
+          sel.href = d.href;
         }
         break;
     }
