@@ -148,8 +148,6 @@ const ELEMENT_GROUPS = [
 // ── PDF generation ────────────────────────────────────────────────────────────
 
 async function generatePDF(html: string): Promise<void> {
-  // Render the clean HTML in a hidden off-screen iframe so it has its own
-  // styling context (fonts, images, inline CSS) without browser print overrides.
   const iframe = document.createElement('iframe')
   iframe.style.cssText =
     'position:fixed;top:-9999px;left:-9999px;width:1280px;height:900px;border:none;'
@@ -161,13 +159,50 @@ async function generatePDF(html: string): Promise<void> {
         const doc = iframe.contentDocument!
         const root = doc.documentElement
 
-        // Give fonts and images time to fully load
-        await new Promise(r => setTimeout(r, 900))
+        // 1. Wait for all web fonts to finish loading (fixes washed-out text)
+        await doc.fonts.ready
 
-        // Expand iframe to the full scroll height so nothing is clipped
+        // 2. Convert every <img> src to a data URL before html2canvas runs.
+        //    This bypasses all cross-origin canvas taint issues so photos,
+        //    Unsplash images, and any other external images render correctly.
+        await Promise.all(
+          Array.from(doc.images).map(async img => {
+            if (!img.src || img.src.startsWith('data:')) return
+            try {
+              const resp = await fetch(img.src, { mode: 'cors' })
+              const blob = await resp.blob()
+              await new Promise<void>(done => {
+                const reader = new FileReader()
+                reader.onload = () => { img.src = reader.result as string; done() }
+                reader.readAsDataURL(blob)
+              })
+            } catch {
+              // Server doesn't support CORS — leave src as-is; html2canvas
+              // will attempt useCORS as a last resort
+            }
+          })
+        )
+
+        // 3. Wait for any images that are still loading after the src swap
+        await Promise.all(
+          Array.from(doc.images).map(img =>
+            img.complete
+              ? Promise.resolve()
+              : new Promise<void>(done => {
+                  img.onload  = () => done()
+                  img.onerror = () => done()
+                  setTimeout(done, 8000) // max 8s per image
+                })
+          )
+        )
+
+        // Small buffer for final layout pass
+        await new Promise(r => setTimeout(r, 200))
+
+        // Expand iframe to full scroll height so nothing is clipped
         const fullH = root.scrollHeight
         iframe.style.height = fullH + 'px'
-        // One animation frame to let the browser reflow
+        await new Promise(r => requestAnimationFrame(r))
         await new Promise(r => requestAnimationFrame(r))
 
         const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
@@ -176,28 +211,24 @@ async function generatePDF(html: string): Promise<void> {
         ])
 
         const canvas = await html2canvas(root, {
-          scale: 2,           // 2× for crisp rendering
-          useCORS: true,
-          allowTaint: false,
+          scale: 2,
+          useCORS: true,     // fallback for any images not converted above
+          allowTaint: false, // keep false so toDataURL works without errors
           logging: false,
           width: 1280,
           height: fullH,
           windowWidth: 1280,
           windowHeight: fullH,
+          imageTimeout: 15000,
+          backgroundColor: null, // use the page's own background colour
         })
 
-        const imgData = canvas.toDataURL('image/jpeg', 0.92)
-        // canvas is 2× the logical pixel size due to scale:2
+        const imgData = canvas.toDataURL('image/jpeg', 0.95)
         const pxW = canvas.width  / 2
         const pxH = canvas.height / 2
-        // Convert logical pixels → mm (96 dpi: 1 px = 25.4/96 mm)
         const toMm = (px: number) => (px * 25.4) / 96
 
-        const pdf = new jsPDF({
-          unit: 'mm',
-          format: [toMm(pxW), toMm(pxH)],
-          orientation: 'p',
-        })
+        const pdf = new jsPDF({ unit: 'mm', format: [toMm(pxW), toMm(pxH)], orientation: 'p' })
         pdf.addImage(imgData, 'JPEG', 0, 0, toMm(pxW), toMm(pxH))
         pdf.save('page.pdf')
         resolve()
