@@ -145,6 +145,72 @@ const ELEMENT_GROUPS = [
   },
 ]
 
+// ── PDF generation ────────────────────────────────────────────────────────────
+
+async function generatePDF(html: string): Promise<void> {
+  // Render the clean HTML in a hidden off-screen iframe so it has its own
+  // styling context (fonts, images, inline CSS) without browser print overrides.
+  const iframe = document.createElement('iframe')
+  iframe.style.cssText =
+    'position:fixed;top:-9999px;left:-9999px;width:1280px;height:900px;border:none;'
+  document.body.appendChild(iframe)
+
+  return new Promise<void>((resolve, reject) => {
+    iframe.onload = async () => {
+      try {
+        const doc = iframe.contentDocument!
+        const root = doc.documentElement
+
+        // Give fonts and images time to fully load
+        await new Promise(r => setTimeout(r, 900))
+
+        // Expand iframe to the full scroll height so nothing is clipped
+        const fullH = root.scrollHeight
+        iframe.style.height = fullH + 'px'
+        // One animation frame to let the browser reflow
+        await new Promise(r => requestAnimationFrame(r))
+
+        const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
+          import('html2canvas'),
+          import('jspdf'),
+        ])
+
+        const canvas = await html2canvas(root, {
+          scale: 2,           // 2× for crisp rendering
+          useCORS: true,
+          allowTaint: false,
+          logging: false,
+          width: 1280,
+          height: fullH,
+          windowWidth: 1280,
+          windowHeight: fullH,
+        })
+
+        const imgData = canvas.toDataURL('image/jpeg', 0.92)
+        // canvas is 2× the logical pixel size due to scale:2
+        const pxW = canvas.width  / 2
+        const pxH = canvas.height / 2
+        // Convert logical pixels → mm (96 dpi: 1 px = 25.4/96 mm)
+        const toMm = (px: number) => (px * 25.4) / 96
+
+        const pdf = new jsPDF({
+          unit: 'mm',
+          format: [toMm(pxW), toMm(pxH)],
+          orientation: 'p',
+        })
+        pdf.addImage(imgData, 'JPEG', 0, 0, toMm(pxW), toMm(pxH))
+        pdf.save('page.pdf')
+        resolve()
+      } catch (err) {
+        reject(err)
+      } finally {
+        if (document.body.contains(iframe)) document.body.removeChild(iframe)
+      }
+    }
+    iframe.srcdoc = html
+  })
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function HtmlVisualEditor() {
@@ -162,6 +228,7 @@ export default function HtmlVisualEditor() {
   const [canUndo, setCanUndo]     = useState(false)
   const [canRedo, setCanRedo]     = useState(false)
   const [uploadError, setUploadError] = useState('')
+  const [generatingPDF, setGeneratingPDF] = useState(false)
 
   const iframeRef   = useRef<HTMLIFrameElement>(null)
   const printModeRef = useRef(false)
@@ -195,18 +262,7 @@ export default function HtmlVisualEditor() {
         const html = d.html as string
         if (printModeRef.current) {
           printModeRef.current = false
-          // Inject print-color CSS so backgrounds/gradients render in PDF
-          const printHtml = html.includes('</head>')
-            ? html.replace('</head>', '<style>@media print{*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}body{margin:0;}}</style>\n</head>')
-            : html
-          const win = window.open('', '_blank')
-          if (win) {
-            win.document.open()
-            win.document.write(printHtml)
-            win.document.close()
-            // Wait for fonts/images to load before triggering print dialog
-            setTimeout(() => { win.focus(); win.print() }, 800)
-          }
+          generatePDF(html).catch(console.error).finally(() => setGeneratingPDF(false))
         } else {
           downloadFile(html, 'page.html')
         }
@@ -304,9 +360,11 @@ export default function HtmlVisualEditor() {
   }, [send, showUploadError])
 
   const handlePrintPDF = useCallback(() => {
+    if (generatingPDF) return
+    setGeneratingPDF(true)
     printModeRef.current = true
     send({ type: 'GET_HTML' })
-  }, [send])
+  }, [send, generatingPDF])
 
   // ── Import screen ───────────────────────────────────────────────────────────
   if (step === 'import') {
@@ -406,9 +464,10 @@ export default function HtmlVisualEditor() {
             className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-xs font-semibold hover:bg-slate-200 transition-colors" title="Download HTML">
             <Download size={13} /><span className="hidden sm:inline">HTML</span>
           </button>
-          <button onClick={handlePrintPDF}
-            className="flex items-center gap-1 px-2.5 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-semibold hover:bg-indigo-700 transition-colors" title="Export as PDF">
-            <Printer size={13} /><span className="hidden sm:inline">PDF</span>
+          <button onClick={handlePrintPDF} disabled={generatingPDF}
+            className="flex items-center gap-1 px-2.5 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-semibold hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-wait transition-colors" title="Export as PDF">
+            <Printer size={13} />
+            <span className="hidden sm:inline">{generatingPDF ? 'Generating…' : 'PDF'}</span>
           </button>
         </div>
       </header>
