@@ -6,6 +6,7 @@ import {
   AlignLeft, AlignCenter, AlignRight, AlignJustify, Trash2, Copy,
   ChevronLeft, Code2, X, FileText, Sparkles, Undo2, Redo2,
   Layers, Image as ImageIcon, Type, Square, Pipette, Plus, Printer,
+  Circle, Palette,
 } from 'lucide-react'
 import { cn, downloadFile, FONT_OPTIONS } from '@/lib/utils'
 import { injectEditorScript, normalizeHtml } from '@/lib/editorScript'
@@ -143,6 +144,21 @@ const ELEMENT_GROUPS = [
       { label: 'Placeholder',  preview: '⬚', html: '<div style="width:100%;height:260px;background:linear-gradient(135deg,#e0e7ff,#c7d2fe);border-radius:12px;display:flex;align-items:center;justify-content:center;"><span style="font-size:15px;color:#6366f1;font-weight:500;">Click to replace image</span></div>' },
     ],
   },
+  {
+    category: 'Shapes',
+    icon: <Circle size={13} />,
+    items: [
+      { label: 'Circle',        preview: '●', html: '<div style="width:200px;height:200px;border-radius:50%;background:#16a34a;display:inline-block;"></div>' },
+      { label: 'Circle (lg)',   preview: '◉', html: '<div style="width:400px;height:400px;border-radius:50%;background:#16a34a;display:inline-block;"></div>' },
+      { label: 'Ring',          preview: '○', html: '<div style="width:200px;height:200px;border-radius:50%;border:12px solid #6366f1;display:inline-block;"></div>' },
+      { label: 'Dot Accent',    preview: '·', html: '<div style="width:40px;height:40px;border-radius:50%;background:#f59e0b;display:inline-block;"></div>' },
+      { label: 'Oval',          preview: '⬭', html: '<div style="width:280px;height:140px;border-radius:50%;background:#6366f1;display:inline-block;"></div>' },
+      { label: 'Rounded Box',   preview: '▢', html: '<div style="width:200px;height:200px;border-radius:24px;background:#e0e7ff;display:inline-block;"></div>' },
+      { label: 'Gradient Blob', preview: '◕', html: '<div style="width:240px;height:240px;border-radius:60% 40% 50% 70% / 50% 60% 40% 50%;background:linear-gradient(135deg,#6366f1,#ec4899);display:inline-block;"></div>' },
+      { label: 'Color Band',    preview: '▬', html: '<div style="width:100%;height:10px;background:linear-gradient(90deg,#6366f1,#ec4899);"></div>' },
+      { label: 'Divider Line',  preview: '—', html: '<hr style="border:none;height:2px;background:#e5e7eb;margin:16px 0;">' },
+    ],
+  },
 ]
 
 // ── PDF generation ────────────────────────────────────────────────────────────
@@ -271,6 +287,8 @@ export default function HtmlVisualEditor() {
   const [canRedo, setCanRedo]     = useState(false)
   const [uploadError, setUploadError] = useState('')
   const [generatingPDF, setGeneratingPDF] = useState(false)
+  const [pageBg, setPageBg] = useState('#ffffff')
+  const pageBgInputRef = useRef<HTMLInputElement>(null)
 
   const iframeRef   = useRef<HTMLIFrameElement>(null)
   const printModeRef = useRef(false)
@@ -299,6 +317,9 @@ export default function HtmlVisualEditor() {
       if (d.type === 'DRAGGING_ENDED')   setIsDragging(false)
       if (d.type === 'HISTORY_UPDATE') {
         setCanUndo(!!d.canUndo); setCanRedo(!!d.canRedo)
+      }
+      if (d.type === 'EDITOR_READY' && d.bodyBg && d.bodyBg !== 'transparent') {
+        setPageBg(d.bodyBg as string)
       }
       if (d.type === 'HTML_CONTENT') {
         const html = d.html as string
@@ -503,6 +524,18 @@ export default function HtmlVisualEditor() {
 
         {/* Right */}
         <div className="flex items-center gap-1.5">
+          {/* Page background colour picker */}
+          <button onClick={() => pageBgInputRef.current?.click()}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-xs font-medium hover:bg-slate-200 transition-colors" title="Page background colour">
+            <Palette size={13} />
+            <span className="w-3.5 h-3.5 rounded-sm border border-slate-300 shrink-0" style={{ background: pageBg }} />
+            <span className="hidden sm:inline">BG</span>
+            <input ref={pageBgInputRef} type="color" value={pageBg} className="sr-only"
+              onChange={e => {
+                setPageBg(e.target.value)
+                send({ type: 'SET_PAGE_BG', color: e.target.value })
+              }} />
+          </button>
           <button onClick={() => setShowCode(v => !v)}
             className={cn('flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors', showCode ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200')}>
             <Code2 size={13} /><span className="hidden sm:inline">Code</span>

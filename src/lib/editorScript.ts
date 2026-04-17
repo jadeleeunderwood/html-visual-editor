@@ -435,10 +435,18 @@ export const EDITOR_SCRIPT = `(function () {
           sel.href = d.href;
         }
         break;
+
+      case 'SET_PAGE_BG':
+        saveHistory(true);
+        document.body.style.backgroundColor = d.color;
+        break;
     }
   });
 
-  window.parent.postMessage({ type: 'EDITOR_READY' }, '*');
+  window.parent.postMessage({
+    type: 'EDITOR_READY',
+    bodyBg: toHex(document.body.style.backgroundColor || window.getComputedStyle(document.body).backgroundColor),
+  }, '*');
 })();`;
 
 /** Wrap an HTML fragment in a full document */
@@ -450,15 +458,17 @@ export function normalizeHtml(html: string): string {
 
 /** Inject the editor script into a full HTML document */
 export function injectEditorScript(html: string): string {
-  // Wrap in DOMContentLoaded so the script always runs after the DOM is ready,
-  // regardless of whether it's injected in <head> or <body>.
-  const tag = `<script data-html-editor="1">
+  const script = `<script data-html-editor="1">
 document.addEventListener('DOMContentLoaded',function(){
 ${EDITOR_SCRIPT}
 });
 </script>`
 
-  if (html.includes('</head>')) return html.replace('</head>', `${tag}\n</head>`)
-  if (html.includes('</body>')) return html.replace('</body>', `${tag}\n</body>`)
-  return html + `\n${tag}`
+  // This style tag persists in the exported HTML (no data-html-editor attr),
+  // so browser Print → Save as PDF preserves full colours on every exported page.
+  const printStyle = `<style id="html-editor-print">@media print{*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}}</style>`
+
+  if (html.includes('</head>')) return html.replace('</head>', `${printStyle}\n${script}\n</head>`)
+  if (html.includes('</body>')) return html.replace('</body>', `${printStyle}\n${script}\n</body>`)
+  return html + `\n${printStyle}\n${script}`
 }
