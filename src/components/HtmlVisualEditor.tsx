@@ -149,8 +149,12 @@ const ELEMENT_GROUPS = [
 
 async function generatePDF(html: string): Promise<void> {
   const iframe = document.createElement('iframe')
+  // Position ON-SCREEN so the browser fully paints the content.
+  // An off-screen iframe (top:-9999px) triggers browser paint-skipping,
+  // causing html2canvas to capture blank/washed-out output.
+  // A React overlay at z-index:9999 hides this from the user.
   iframe.style.cssText =
-    'position:fixed;top:-9999px;left:-9999px;width:1280px;height:900px;border:none;'
+    'position:fixed;top:0;left:0;width:1280px;height:900px;border:none;z-index:9998;pointer-events:none;'
   document.body.appendChild(iframe)
 
   return new Promise<void>((resolve, reject) => {
@@ -159,8 +163,13 @@ async function generatePDF(html: string): Promise<void> {
         const doc = iframe.contentDocument!
         const root = doc.documentElement
 
-        // 1. Wait for all web fonts to finish loading (fixes washed-out text)
-        await doc.fonts.ready
+        // 1. Wait for all web fonts AND at least 2s so the browser fully paints.
+        //    The 2s minimum is essential: it gives the browser time to rasterize
+        //    backgrounds, gradients, and custom fonts that aren't yet on screen.
+        await Promise.all([
+          doc.fonts.ready,
+          new Promise(r => setTimeout(r, 2000)),
+        ])
 
         // 2. Convert every <img> src to a data URL before html2canvas runs.
         //    This bypasses all cross-origin canvas taint issues so photos,
@@ -197,11 +206,13 @@ async function generatePDF(html: string): Promise<void> {
         )
 
         // Small buffer for final layout pass
-        await new Promise(r => setTimeout(r, 200))
+        await new Promise(r => setTimeout(r, 300))
 
         // Expand iframe to full scroll height so nothing is clipped
         const fullH = root.scrollHeight
         iframe.style.height = fullH + 'px'
+        // Wait 3 rAFs so the browser repaints after the height change
+        await new Promise(r => requestAnimationFrame(r))
         await new Promise(r => requestAnimationFrame(r))
         await new Promise(r => requestAnimationFrame(r))
 
@@ -220,7 +231,7 @@ async function generatePDF(html: string): Promise<void> {
           windowWidth: 1280,
           windowHeight: fullH,
           imageTimeout: 15000,
-          backgroundColor: null, // use the page's own background colour
+          backgroundColor: '#ffffff', // solid white base ensures full opacity
         })
 
         const imgData = canvas.toDataURL('image/jpeg', 0.95)
@@ -447,6 +458,15 @@ export default function HtmlVisualEditor() {
   // ── Editor screen ───────────────────────────────────────────────────────────
   return (
     <div className="h-screen flex flex-col bg-slate-100 overflow-hidden">
+
+      {/* PDF generation overlay — hides the on-screen render iframe (z-index:9998) */}
+      {generatingPDF && (
+        <div className="fixed inset-0 z-[9999] bg-slate-900/80 flex flex-col items-center justify-center gap-4">
+          <div className="w-10 h-10 border-4 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+          <p className="text-white font-semibold text-base">Generating PDF…</p>
+          <p className="text-slate-400 text-sm">Please wait, this takes a few seconds</p>
+        </div>
+      )}
 
       {/* Top bar */}
       <header className="h-12 flex items-center justify-between px-3 bg-white border-b border-slate-200 shrink-0 z-10 gap-2">
